@@ -81,13 +81,86 @@ State is tracked per-album in `library-state.yaml`. If processing is
 interrupted, re-running the command picks up where it left off. Albums
 marked as `done` are skipped.
 
-## Input file expectations
+## Recording styles
 
-- WAV files recorded from vinyl via the TP-7
-- Files are sorted by name (TP-7 names files by timestamp, so alphabetical
-  order = recording order)
-- A folder might contain any combination of:
-  - One file per track (already split)
-  - One file per vinyl side
-  - One file for the entire album
-  - A mix (e.g., missed a split between tracks)
+The TP-7 doesn't know anything about your vinyl — it just records WAV files.
+How you choose to start and stop recording determines what libvinyl has to
+work with. All of these approaches are supported and can be mixed within a
+single album folder:
+
+### One file per track
+
+If you manually stop and start the TP-7 between each track, you'll end up
+with one WAV file per track. When the number of files matches the expected
+track count from MusicBrainz, libvinyl skips splitting entirely and maps
+files 1:1 to tracks (sorted by filename, which the TP-7 timestamps
+chronologically).
+
+### One file per vinyl side
+
+The most natural approach — drop the needle at the start of a side and let
+it record until the side ends. You'll get two files for a standard LP. The
+splitting algorithm handles finding individual track boundaries within each
+file.
+
+### One continuous file
+
+Record the entire album into a single WAV, flipping sides without stopping.
+This also works fine — the algorithm treats it the same as any other layout,
+just with one file in the timeline.
+
+### Mixed / partial recordings
+
+Sometimes you'll miss a track change, or stop and restart mid-side. You
+might end up with a file containing tracks 1–3 and another with tracks 4–5.
+libvinyl handles this by treating all files as a single continuous timeline
+(concatenated in filename order) and finding boundaries within that combined
+audio stream. A track boundary can even fall across a file boundary.
+
+## How track splitting works
+
+Vinyl surface noise makes traditional silence detection unreliable — there's
+never true silence between tracks, just quieter crackle. libvinyl uses a
+**duration-first** approach that relies on knowing how long each track
+*should* be, using MusicBrainz as the source of truth.
+
+### Duration-first algorithm
+
+1. **Build a timeline.** All WAV files are loaded and treated as one
+   continuous audio stream, sorted by filename. RMS energy is computed in
+   0.05-second windows across the entire stream.
+
+2. **Predict each boundary.** Starting at `cursor = 0.0`, the expected
+   duration of track 1 (from MusicBrainz) is added to predict where it
+   should end.
+
+3. **Search for the quietest region.** Within a ±15-second window around
+   the predicted end, a 0.3-second sliding window scans the RMS energy to
+   find the lowest-energy region. The midpoint of that region becomes the
+   track boundary.
+
+4. **Derive the true start.** The track start is calculated as
+   `found_end − expected_duration`, clamped to the previous track's end
+   to prevent gaps or overlaps.
+
+5. **Advance and repeat.** The found end becomes the cursor for predicting
+   the next track. This anchoring prevents timing drift from accumulating
+   across the album. The last track always extends to the end of the audio.
+
+6. **Preview and confirm.** A table is shown comparing expected vs detected
+   durations for each track. Nothing is written until you confirm.
+
+### Fallback: silence detection
+
+When MusicBrainz data is unavailable (or you enter tracks manually without
+durations), libvinyl falls back to conventional silence detection. It
+computes a threshold at 5% of the median RMS energy and looks for sustained
+drops below that level (at least 1 second), using those gaps as track
+boundaries. This works less reliably on vinyl recordings due to surface
+noise but is serviceable as a last resort.
+
+### Short segments and mistakes
+
+If a recording contains very short segments (e.g., accidentally starting and
+stopping the recorder), these are flagged during analysis and you're prompted
+to discard them before splitting.
