@@ -1,5 +1,5 @@
 [project]
-name = "tp7-org"
+name = "libvinyl"
 version = "0.1.0"
 description = "Library organiser for Teenage Engineering TP-7 vinyl recordings"
 readme = "README.md"
@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-tp7-org = "tp7_org.cli:main"
+libvinyl = "libvinyl.cli:main"
 
 [build-system]
 requires = ["hatchling"]

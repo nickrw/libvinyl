@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import musicbrainzngs
 
-musicbrainzngs.set_useragent("tp7-org", "0.1.0", "https://github.com/nickrw/tp7-org")
+musicbrainzngs.set_useragent("libvinyl", "0.1.0", "https://github.com/nickrw/libvinyl")
 
 
 @dataclass

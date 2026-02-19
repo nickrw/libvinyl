@@ -5,12 +5,12 @@ description: "Guides WAV file audio analysis: RMS energy computation, silence de
 
 # Analyzing WAV Audio
 
-Provides instructions for working with WAV audio analysis in tp7-org.
+Provides instructions for working with WAV audio analysis in libvinyl.
 
 ## Core Concepts
 
 ### RMS Energy
-RMS (Root Mean Square) energy measures average loudness in sliding windows. This project computes it in `src/tp7_org/audio.py` via `read_wav_mono_rms()`.
+RMS (Root Mean Square) energy measures average loudness in sliding windows. This project computes it in `src/libvinyl/audio.py` via `read_wav_mono_rms()`.
 
 - **Window size**: Default 0.05s (50ms) for analysis, 0.1s for basic detection
 - **Output**: A 1D numpy array where each element is the RMS energy of one window
@@ -67,7 +67,7 @@ When asked to analyze or debug audio:
 3. **Visualize mentally** — High RMS = loud audio, low RMS = quiet/silence, median RMS = typical loudness level
 4. **Detect silences** — Use `detect_silences()` with default params first, then adjust `threshold_factor` (0.02–0.20) and `min_silence_sec` (0.5–3.0) if needed
 
-## Key Functions (in `src/tp7_org/audio.py`)
+## Key Functions (in `src/libvinyl/audio.py`)
 
 - `read_wav_mono_rms(path, window_sec)` → `(rms_array, sample_rate)`
 - `detect_silences(rms, window_sec, threshold_factor, min_silence_sec, median_filter_size)` → `list[SilenceGap]`

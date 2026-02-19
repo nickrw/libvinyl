@@ -19,7 +19,7 @@ A diagnostic workflow for when album splitting produces incorrect results.
 
 ## Step 1: Check Entry Point Decision
 
-Read `analyze_album_files()` in `src/tp7_org/audio.py` and verify which code path was taken:
+Read `analyze_album_files()` in `src/libvinyl/audio.py` and verify which code path was taken:
 
 1. **1:1 mapping** — `len(wav_files) == expected_tracks`. If the user has one WAV per track already, no splitting occurs. Check if this condition was triggered incorrectly.
 2. **Duration-first** — All `expected_durations_ms` are non-None. This is the preferred path.
@@ -93,7 +93,7 @@ If duration-first wasn't used and silence detection produced bad results:
 After adjusting parameters or fixing issues:
 
 ```bash
-uv run tp7-org process ./library --album "Artist - Album"
+uv run libvinyl process ./library --album "Artist - Album"
 ```
 
 The interactive preview shows all detected segments with durations. Compare these against the MusicBrainz track listing before confirming the split.

@@ -2,21 +2,21 @@
 
 ## Project overview
 
-tp7-org is a CLI tool for organising vinyl recordings from a Teenage Engineering
+libvinyl is a CLI tool for organising vinyl recordings from a Teenage Engineering
 TP-7. It splits multi-track WAV files into individual tracks, looks up metadata
 from MusicBrainz, converts to FLAC, and manages a library of albums.
 
 ## Architecture
 
-- `src/tp7_org/cli.py` — Click CLI entry point and pipeline orchestration
-- `src/tp7_org/audio.py` — Audio analysis (RMS energy, silence detection,
+- `src/libvinyl/cli.py` — Click CLI entry point and pipeline orchestration
+- `src/libvinyl/audio.py` — Audio analysis (RMS energy, silence detection,
   duration-first splitting) and WAV file manipulation
-- `src/tp7_org/musicbrainz.py` — MusicBrainz API integration
-- `src/tp7_org/convert.py` — WAV→FLAC conversion (via ffmpeg) and metadata
+- `src/libvinyl/musicbrainz.py` — MusicBrainz API integration
+- `src/libvinyl/convert.py` — WAV→FLAC conversion (via ffmpeg) and metadata
   tagging (via mutagen)
-- `src/tp7_org/state.py` — YAML-based state management with per-album status
+- `src/libvinyl/state.py` — YAML-based state management with per-album status
   tracking (`raw → analyzed → split → converted → done`)
-- `src/tp7_org/ui.py` — Rich console output (tables, prompts, progress bars)
+- `src/libvinyl/ui.py` — Rich console output (tables, prompts, progress bars)
 
 ## Key design decisions
 
@@ -36,7 +36,7 @@ from MusicBrainz, converts to FLAC, and manages a library of albums.
 - Python 3.12+, managed with uv
 - Type hints throughout, `from __future__ import annotations`
 - Dependencies: click, rich, pydub, scipy, numpy, musicbrainzngs, mutagen, pyyaml
-- CLI entry point: `tp7-org` (defined in pyproject.toml)
+- CLI entry point: `libvinyl` (defined in pyproject.toml)
 - Use `ui.py` functions for all user-facing output (don't print directly)
 
 ## Testing
@@ -44,8 +44,8 @@ from MusicBrainz, converts to FLAC, and manages a library of albums.
 No test suite yet. To verify changes manually:
 
 ```bash
-uv run tp7-org status ./library
-uv run tp7-org process ./library --album "Artist - Album"
+uv run libvinyl status ./library
+uv run libvinyl process ./library --album "Artist - Album"
 ```
 
 The `library/` directory contains real WAV files — be careful with destructive

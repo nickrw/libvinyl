@@ -13,7 +13,7 @@ Global silence detection fails on vinyl because surface noise prevents true sile
 
 ## Algorithm Overview
 
-The implementation lives in `_analyze_duration_first()` in `src/tp7_org/audio.py`.
+The implementation lives in `_analyze_duration_first()` in `src/libvinyl/audio.py`.
 
 ### Step-by-Step
 
@@ -82,10 +82,10 @@ Once segments are determined, `split_wav(source, output, start_sec, end_sec)` ex
 
 ## Workflow: Modifying the Splitting Algorithm
 
-1. Read `src/tp7_org/audio.py` — all splitting logic is here
+1. Read `src/libvinyl/audio.py` — all splitting logic is here
 2. Key tuning parameters:
    - `search_radius` (default 15.0s) — how far from prediction to search
    - `region_sec` (default 0.3s) — width of the "quietest region" window
    - `window_sec` (default 0.05s) — RMS computation granularity
-3. Test changes with: `uv run tp7-org process ./library --album "Artist - Album"`
+3. Test changes with: `uv run libvinyl process ./library --album "Artist - Album"`
 4. The interactive preview will show detected segments before any files are written

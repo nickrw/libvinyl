@@ -1,4 +1,4 @@
-# tp7-org
+# libvinyl
 
 Library organiser for vinyl recordings made with a Teenage Engineering TP-7.
 
@@ -22,19 +22,19 @@ Point at your library folder. Each subfolder should be named `Artist - Album`
 (or just `Album` for compilations) and contain WAV recordings from the TP-7.
 
 ```bash
-uv run tp7-org process ./library
+uv run libvinyl process ./library
 ```
 
 Process a single album:
 
 ```bash
-uv run tp7-org process ./library --album "Blink-182 - Take Off Your Pants and Jacket"
+uv run libvinyl process ./library --album "Blink-182 - Take Off Your Pants and Jacket"
 ```
 
 ### Check status
 
 ```bash
-uv run tp7-org status ./library
+uv run libvinyl status ./library
 ```
 
 ## How it works

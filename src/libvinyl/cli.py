@@ -1,4 +1,4 @@
-"""CLI entry point for tp7-org."""
+"""CLI entry point for libvinyl."""
 
 from __future__ import annotations
 
