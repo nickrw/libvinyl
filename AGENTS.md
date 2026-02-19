@@ -1,0 +1,53 @@
+# Agent Instructions
+
+## Project overview
+
+tp7-org is a CLI tool for organising vinyl recordings from a Teenage Engineering
+TP-7. It splits multi-track WAV files into individual tracks, looks up metadata
+from MusicBrainz, converts to FLAC, and manages a library of albums.
+
+## Architecture
+
+- `src/tp7_org/cli.py` — Click CLI entry point and pipeline orchestration
+- `src/tp7_org/audio.py` — Audio analysis (RMS energy, silence detection,
+  duration-first splitting) and WAV file manipulation
+- `src/tp7_org/musicbrainz.py` — MusicBrainz API integration
+- `src/tp7_org/convert.py` — WAV→FLAC conversion (via ffmpeg) and metadata
+  tagging (via mutagen)
+- `src/tp7_org/state.py` — YAML-based state management with per-album status
+  tracking (`raw → analyzed → split → converted → done`)
+- `src/tp7_org/ui.py` — Rich console output (tables, prompts, progress bars)
+
+## Key design decisions
+
+- **Duration-first splitting**: When MusicBrainz data is available, we predict
+  track boundaries from known durations and search for the quietest audio region
+  nearby, rather than trying to detect all silences globally. Vinyl has surface
+  noise that makes global silence detection unreliable.
+- **State machine**: Each album progresses through states and can resume from
+  any point after interruption. State is stored in `library-state.yaml` at the
+  library root.
+- **Interactive**: The tool always shows a preview and asks for confirmation
+  before making changes. It prompts for MusicBrainz release selection and
+  offers manual fallback.
+
+## Conventions
+
+- Python 3.12+, managed with uv
+- Type hints throughout, `from __future__ import annotations`
+- Dependencies: click, rich, pydub, scipy, numpy, musicbrainzngs, mutagen, pyyaml
+- CLI entry point: `tp7-org` (defined in pyproject.toml)
+- Use `ui.py` functions for all user-facing output (don't print directly)
+
+## Testing
+
+No test suite yet. To verify changes manually:
+
+```bash
+uv run tp7-org status ./library
+uv run tp7-org process ./library --album "Artist - Album"
+```
+
+The `library/` directory contains real WAV files — be careful with destructive
+operations. The `archive/` directory (sibling to `library/`) stores original
+WAVs after processing.
