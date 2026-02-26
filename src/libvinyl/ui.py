@@ -12,7 +12,7 @@ from rich.table import Table
 if TYPE_CHECKING:
     from .audio import TrackSegment
     from .musicbrainz import MBRelease, MBTrack
-    from .state import AlbumState, AlbumStatus
+    from .state import AlbumState, AlbumStatus, TrackInfo
 
 console = Console()
 
@@ -256,6 +256,104 @@ def print_info(message: str) -> None:
 
 def print_header(message: str) -> None:
     console.print(Panel(message, style="bold cyan"))
+
+
+def edit_tracklist(tracks: list[TrackInfo]) -> list[TrackInfo]:
+    """Display a track listing and allow interactive editing.
+
+    Shows the table, then loops accepting commands until the user
+    presses Enter to accept. Returns the (possibly modified) list.
+    """
+    while True:
+        _show_editable_tracks(tracks)
+        console.print()
+        action = Prompt.ask(
+            "[dim](e)dit, (a)dd, (d)elete, Enter to accept[/dim]",
+            default="",
+        ).strip().lower()
+
+        if not action:
+            break
+        elif action[0] == "e":
+            _do_edit_track(tracks)
+        elif action[0] == "a":
+            _do_add_track(tracks)
+        elif action[0] == "d":
+            _do_delete_track(tracks)
+        else:
+            console.print("[red]Unknown command.[/red]")
+
+    return tracks
+
+
+def _show_editable_tracks(tracks: list[TrackInfo]) -> None:
+    table = Table(title="Track Listing")
+    table.add_column("#", style="dim", justify="right")
+    table.add_column("Title", style="cyan")
+    table.add_column("Duration", justify="right")
+
+    for track in tracks:
+        dur = _format_duration_ms(track.duration_ms)
+        table.add_row(str(track.number), track.name, dur)
+
+    console.print(table)
+
+
+def _do_edit_track(tracks: list[TrackInfo]) -> None:
+    num = IntPrompt.ask("Track number")
+    track = next((t for t in tracks if t.number == num), None)
+    if not track:
+        console.print(f"[red]No track #{num}.[/red]")
+        return
+
+    track.name = Prompt.ask("  Title", default=track.name)
+    dur_default = _format_duration_ms(track.duration_ms)
+    dur_input = Prompt.ask("  Duration (M:SS)", default=dur_default)
+    track.duration_ms = _parse_duration_input(dur_input)
+
+
+def _do_add_track(tracks: list[TrackInfo]) -> None:
+    from .state import TrackInfo
+
+    pos = IntPrompt.ask("Position", default=len(tracks) + 1)
+    name = Prompt.ask("  Title")
+    dur_input = Prompt.ask("  Duration (M:SS, Enter to skip)", default="")
+    duration_ms = _parse_duration_input(dur_input)
+
+    idx = max(0, min(pos - 1, len(tracks)))
+    tracks.insert(idx, TrackInfo(number=pos, name=name, duration_ms=duration_ms))
+    for i, t in enumerate(tracks, 1):
+        t.number = i
+
+
+def _do_delete_track(tracks: list[TrackInfo]) -> None:
+    num = IntPrompt.ask("Track number")
+    idx = next((i for i, t in enumerate(tracks) if t.number == num), None)
+    if idx is None:
+        console.print(f"[red]No track #{num}.[/red]")
+        return
+    removed = tracks.pop(idx)
+    console.print(f"[yellow]Removed: {removed.name}[/yellow]")
+    for i, t in enumerate(tracks, 1):
+        t.number = i
+
+
+def _format_duration_ms(ms: int | None) -> str:
+    if ms is None:
+        return ""
+    mins, secs = divmod(ms // 1000, 60)
+    return f"{mins}:{secs:02d}"
+
+
+def _parse_duration_input(s: str) -> int | None:
+    s = s.strip()
+    if ":" not in s:
+        return None
+    parts = s.split(":", 1)
+    try:
+        return (int(parts[0]) * 60 + int(parts[1])) * 1000
+    except ValueError:
+        return None
 
 
 def show_short_segments(

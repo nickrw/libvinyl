@@ -72,7 +72,10 @@ def process_album(
         ui.print_success(f"Album complete: {folder_name}")
 
 
-def _stage_analyze(album_state: AlbumState, folder_name: str) -> AlbumState:
+def _stage_analyze(
+    album_state: AlbumState,
+    folder_name: str,
+) -> AlbumState:
     """Look up album on MusicBrainz and get track listing."""
     ui.print_info("Looking up album on MusicBrainz...")
 
@@ -96,17 +99,21 @@ def _stage_analyze(album_state: AlbumState, folder_name: str) -> AlbumState:
             full_release = None
 
         if full_release:
-            ui.show_track_listing(full_release.tracks)
-            album_state.musicbrainz_id = full_release.id
-            album_state.year = full_release.year
             album_state.tracks = [
                 TrackInfo(number=t.number, name=t.title, duration_ms=t.duration_ms)
                 for t in full_release.tracks
             ]
+            album_state.tracks = ui.edit_tracklist(album_state.tracks)
+
+            album_state.musicbrainz_id = full_release.id
+            album_state.year = full_release.year
             album_state.artist = full_release.artist
             album_state.album = full_release.title
-    else:
-        # Manual fallback
+        else:
+            ui.print_warning("Falling back to manual entry.")
+            release = None
+
+    if not release:
         ui.print_info("Entering manual mode.")
         track_count = ui.prompt_int("Number of tracks")
         names = ui.prompt_track_names(track_count)
@@ -371,7 +378,10 @@ def main() -> None:
 @main.command()
 @click.argument("library_path", type=click.Path(exists=True, path_type=Path))
 @click.option("--album", "-a", help="Process a specific album folder only.")
-def process(library_path: Path, album: str | None) -> None:
+def process(
+    library_path: Path,
+    album: str | None,
+) -> None:
     """Process albums: analyse, split, convert to FLAC, and archive."""
     library_path = library_path.resolve()
     state_mgr = StateManager(library_path)

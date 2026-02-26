@@ -192,65 +192,118 @@ def _load_file_rms_data(
 
 
 def _find_quietest_region(
-    file_data: list[_FileRMS],
-    global_time: float,
+    fd: _FileRMS,
+    local_time: float,
     search_radius: float = 15.0,
     region_sec: float = 0.3,
 ) -> float:
-    """Find the midpoint of the quietest region near a global time.
+    """Find the midpoint of the quietest region near a local time within a file.
 
-    Searches ±search_radius seconds around global_time across file
-    boundaries. Returns the global time of the quietest region's midpoint.
+    Searches ±search_radius seconds around local_time, clamped to the
+    file boundaries. Returns the local time of the quietest region's midpoint.
     """
-    search_start = max(0.0, global_time - search_radius)
-    search_end = global_time + search_radius
+    search_start = max(0.0, local_time - search_radius)
+    search_end = min(fd.duration, local_time + search_radius)
+
+    start_idx = int(search_start / fd.window_sec)
+    end_idx = int(search_end / fd.window_sec)
+
+    if start_idx >= end_idx or start_idx >= len(fd.rms):
+        return local_time
+
+    rms_slice = fd.rms[start_idx:end_idx]
+    region_windows = max(1, int(region_sec / fd.window_sec))
 
     best_energy = float("inf")
-    best_time = global_time
+    best_time = local_time
 
-    for fd in file_data:
-        file_start = fd.global_offset
-        file_end = fd.global_offset + fd.duration
-
-        # Skip files outside our search window
-        if file_end <= search_start or file_start >= search_end:
-            continue
-
-        # Map search window to local file coordinates
-        local_start = max(0.0, search_start - file_start)
-        local_end = min(fd.duration, search_end - file_start)
-
-        start_idx = int(local_start / fd.window_sec)
-        end_idx = int(local_end / fd.window_sec)
-
-        if start_idx >= end_idx or start_idx >= len(fd.rms):
-            continue
-
-        rms_slice = fd.rms[start_idx:end_idx]
-        region_windows = max(1, int(region_sec / fd.window_sec))
-
-        # Sliding window to find lowest-energy region
-        for i in range(len(rms_slice) - region_windows + 1):
-            region_energy = np.mean(rms_slice[i : i + region_windows])
-            if region_energy < best_energy:
-                best_energy = region_energy
-                mid_idx = i + region_windows // 2
-                best_time = file_start + (start_idx + mid_idx) * fd.window_sec
+    for i in range(len(rms_slice) - region_windows + 1):
+        region_energy = np.mean(rms_slice[i : i + region_windows])
+        if region_energy < best_energy:
+            best_energy = region_energy
+            mid_idx = i + region_windows // 2
+            best_time = (start_idx + mid_idx) * fd.window_sec
 
     return best_time
 
 
-def _global_to_file(
-    global_time: float,
-    file_data: list[_FileRMS],
-) -> tuple[Path, float]:
-    """Convert a global time to (file, local_time)."""
-    for fd in file_data:
-        if global_time < fd.global_offset + fd.duration:
-            return fd.path, global_time - fd.global_offset
-    # Past the end — clamp to last file
-    last = file_data[-1]
-    return last.path, last.duration
+def _detect_music_region(
+    fd: _FileRMS,
+    threshold_factor: float = 0.1,
+    sustain_sec: float = 3.0,
+) -> tuple[float, float]:
+    """Detect where music starts and ends in a file.
+
+    Skips leading silence (needle drop, run-in groove) and trailing
+    silence (run-out groove, needle lift). Uses a sustain requirement
+    to filter out needle pops and other brief transients.
+    """
+    rms = fd.rms
+    if len(rms) == 0:
+        return 0.0, fd.duration
+
+    nonzero = rms[rms > 0]
+    if len(nonzero) == 0:
+        return 0.0, fd.duration
+
+    median_rms = float(np.median(nonzero))
+    threshold = threshold_factor * median_rms
+    sustain_windows = max(1, int(sustain_sec / fd.window_sec))
+
+    music_start = 0.0
+    for i in range(len(rms) - sustain_windows + 1):
+        if float(np.mean(rms[i : i + sustain_windows])) >= threshold:
+            music_start = max(0.0, i * fd.window_sec - 1.0)
+            break
+
+    music_end = fd.duration
+    for i in range(len(rms) - sustain_windows, -1, -1):
+        if float(np.mean(rms[i : i + sustain_windows])) >= threshold:
+            music_end = min((i + sustain_windows) * fd.window_sec + 1.0, fd.duration)
+            break
+
+    return music_start, music_end
+
+
+def _assign_tracks_to_files(
+    file_music_durations: list[float],
+    track_durations: list[float],
+) -> list[list[int]]:
+    """Assign track indices to files based on cumulative duration fit.
+
+    Greedily assigns consecutive tracks to each file, finding the split
+    point where the cumulative track duration best matches the file's
+    music duration. Returns a list of lists of 0-based track indices.
+    """
+    n_files = len(file_music_durations)
+    n_tracks = len(track_durations)
+
+    groups: list[list[int]] = [[] for _ in range(n_files)]
+    track_idx = 0
+
+    for file_idx in range(n_files):
+        if file_idx == n_files - 1:
+            groups[file_idx] = list(range(track_idx, n_tracks))
+            break
+
+        target = file_music_durations[file_idx]
+        cumulative = 0.0
+        best_split = track_idx
+        best_diff = target
+
+        for i in range(track_idx, n_tracks):
+            cumulative += track_durations[i]
+            diff = abs(cumulative - target)
+            if diff < best_diff:
+                best_diff = diff
+                best_split = i + 1
+            if cumulative > target * 1.5:
+                break
+
+        groups[file_idx] = list(range(track_idx, best_split))
+        track_idx = best_split
+
+    return groups
 
 
 def analyze_album_files(
@@ -304,50 +357,55 @@ def _analyze_duration_first(
     expected_durations_ms: list[int],
     window_sec: float,
 ) -> list[TrackSegment]:
-    """Duration-first analysis using expected track lengths."""
+    """Duration-first analysis using expected track lengths.
+
+    Tracks never cross file boundaries — each file is a self-contained
+    recording (e.g., one vinyl side). The algorithm:
+      1. Detects the music region in each file (skipping lead-in/lead-out)
+      2. Assigns tracks to files based on cumulative duration fit
+      3. Finds track boundaries within each file independently
+    """
     file_data = _load_file_rms_data(wav_files, window_sec=window_sec)
-    total_audio = sum(fd.duration for fd in file_data)
-
     durations_sec = [d / 1000.0 for d in expected_durations_ms]
+
+    music_regions = [_detect_music_region(fd) for fd in file_data]
+    music_durations = [end - start for start, end in music_regions]
+    track_groups = _assign_tracks_to_files(music_durations, durations_sec)
+
     segments: list[TrackSegment] = []
+    track_num = 1
 
-    cursor = 0.0  # current position (global time)
+    for fd, (music_start, music_end), group in zip(
+        file_data, music_regions, track_groups,
+    ):
+        if not group:
+            continue
 
-    for track_num, expected_dur in enumerate(durations_sec, 1):
-        predicted_end = cursor + expected_dur
+        group_durations = [durations_sec[i] for i in group]
+        cursor = music_start
 
-        if track_num == expected_tracks:
-            # Last track: ends at the end of all audio
-            track_end = total_audio
-        else:
-            # Find the quietest region near the predicted end
-            track_end = _find_quietest_region(
-                file_data, predicted_end, search_radius=15.0,
-            )
+        for i, expected_dur in enumerate(group_durations):
+            predicted_end = cursor + expected_dur
 
-        # Derive the true start from the found end
-        track_start = track_end - expected_dur
-        # But don't go before the previous track's end
-        track_start = max(track_start, cursor)
+            if i == len(group_durations) - 1:
+                track_end = music_end
+            else:
+                track_end = _find_quietest_region(
+                    fd, predicted_end, search_radius=15.0,
+                )
+                track_end = max(cursor, min(track_end, music_end))
 
-        # Map to source files — a track might span a file boundary,
-        # but for splitting we use the file where it starts
-        src_file, local_start = _global_to_file(track_start, file_data)
-        _, local_end = _global_to_file(track_end, file_data)
+            track_start = max(track_end - expected_dur, cursor)
 
-        # If the track spans file boundaries, we'll need to handle that
-        # For now, assign to the file containing the start
-        end_file, _ = _global_to_file(track_end - 0.01, file_data)
+            segments.append(TrackSegment(
+                source_file=fd.path,
+                start_sec=track_start,
+                end_sec=track_end,
+                track_number=track_num,
+            ))
 
-        segments.append(TrackSegment(
-            source_file=src_file,
-            start_sec=local_start,
-            end_sec=local_end if src_file == end_file else get_wav_duration(src_file),
-            track_number=track_num,
-        ))
-
-        # Advance cursor to the found end
-        cursor = track_end
+            cursor = track_end
+            track_num += 1
 
     return segments
 
