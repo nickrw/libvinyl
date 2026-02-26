@@ -13,6 +13,7 @@ from .audio import TrackSegment, analyze_album_files, get_wav_duration, split_wa
 from .convert import tag_flac, wav_to_flac
 from .musicbrainz import get_release_tracks, search_releases
 from .state import AlbumState, AlbumStatus, StateManager, TrackInfo
+from .visualise import visualise_splits
 
 
 def parse_folder_name(folder_name: str) -> tuple[str, str]:
@@ -173,6 +174,7 @@ def _stage_split(
         and all(s.start_sec == 0 for s in segments)
     )
 
+    delete_indices: list[int] = []
     if files_match_tracks:
         ui.print_info("Files already match expected track count — no splitting needed.")
     else:
@@ -181,11 +183,15 @@ def _stage_split(
             durations = [s.duration_sec for s in segments]
             median_dur = sorted(durations)[len(durations) // 2]
             delete_indices = ui.show_short_segments(segments, track_names, median_dur)
-            if delete_indices:
-                segments = [s for i, s in enumerate(segments) if i not in delete_indices]
-                # Renumber
-                for i, seg in enumerate(segments, 1):
-                    seg.track_number = i
+
+        # Show waveform visualisation before removing dropped segments
+        visualise_splits(wav_files, segments, track_names, dropped_indices=delete_indices)
+
+        if delete_indices:
+            segments = [s for i, s in enumerate(segments) if i not in delete_indices]
+            # Renumber
+            for i, seg in enumerate(segments, 1):
+                seg.track_number = i
 
     # If we don't have enough track names, prompt for manual entry
     if len(track_names) < len(segments):
