@@ -12,3 +12,6 @@ library
 archive
 .DS_Store
 *.swp
+
+# Editors
+.idea

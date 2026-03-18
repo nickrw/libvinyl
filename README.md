@@ -5,6 +5,9 @@ Library organiser for vinyl recordings made with a Teenage Engineering TP-7.
 Records vinyl to WAV files, then splits, tags, and converts them into a neatly
 organised FLAC library.
 
+![Screenshot showing split UX - detecting tracks in combined wav files](static/split_detection.png)
+
+
 ## Setup
 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/), plus ffmpeg:
