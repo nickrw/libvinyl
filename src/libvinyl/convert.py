@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from urllib.parse import quote
 
 from mutagen.flac import FLAC
 
@@ -17,12 +18,14 @@ def wav_to_flac(
 
     If hi_res is False, downsample to 44.1kHz/16-bit (CD quality).
     """
-    # Prefix paths with file: so ffmpeg doesn't interpret colons in
-    # filenames (e.g. "Mars: the Bringer of War") as protocol separators.
-    cmd = ["ffmpeg", "-y", "-i", f"file:{wav_path}"]
+    # Use file: protocol with URL-encoded paths so ffmpeg doesn't
+    # interpret colons in filenames as protocol separators.
+    wav_url = f"file:{quote(str(wav_path), safe='/')}"
+    flac_url = f"file:{quote(str(flac_path), safe='/')}"
+    cmd = ["ffmpeg", "-y", "-i", wav_url]
     if not hi_res:
         cmd.extend(["-ar", "44100", "-sample_fmt", "s16"])
-    cmd.extend(["-c:a", "flac", f"file:{flac_path}"])
+    cmd.extend(["-c:a", "flac", flac_url])
     subprocess.run(cmd, check=True, capture_output=True)
 
 
