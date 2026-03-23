@@ -313,6 +313,14 @@ def _stage_convert(
             safe_name = sanitize_filename(track.name)
             wav_name = track.file or f"{track.number:0{pad}d} - {safe_name}.wav"
             wav_path = album_dir / wav_name
+            safe_wav_name = f"{track.number:0{pad}d} - {safe_name}.wav"
+            # Rename WAV files that have problematic characters (e.g. colons
+            # from a previous split run) so ffmpeg doesn't choke on them.
+            if wav_name != safe_wav_name and wav_path.exists():
+                safe_wav_path = album_dir / safe_wav_name
+                wav_path.rename(safe_wav_path)
+                wav_path = safe_wav_path
+                track.file = safe_wav_name
             flac_name = f"{track.number:0{pad}d} - {safe_name}.flac"
             flac_path = album_dir / flac_name
 

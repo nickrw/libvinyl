@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from urllib.parse import quote
 
 from mutagen.flac import FLAC
 
@@ -18,14 +17,13 @@ def wav_to_flac(
 
     If hi_res is False, downsample to 44.1kHz/16-bit (CD quality).
     """
-    # Use file: protocol with URL-encoded paths so ffmpeg doesn't
-    # interpret colons in filenames as protocol separators.
-    wav_url = f"file:{quote(str(wav_path), safe='/')}"
-    flac_url = f"file:{quote(str(flac_path), safe='/')}"
-    cmd = ["ffmpeg", "-y", "-i", wav_url]
+    cmd = ["ffmpeg", "-y", "-i", str(wav_path)]
+    # Extract only the first two channels (stereo) — multi-channel WAVs
+    # from the TP-7 have the stereo pair in channels 1+2 with the rest unused.
+    cmd.extend(["-af", "pan=stereo|c0=c0|c1=c1"])
     if not hi_res:
         cmd.extend(["-ar", "44100", "-sample_fmt", "s16"])
-    cmd.extend(["-c:a", "flac", flac_url])
+    cmd.extend(["-c:a", "flac", str(flac_path)])
     subprocess.run(cmd, check=True, capture_output=True)
 
 
