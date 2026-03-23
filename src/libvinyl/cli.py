@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -14,6 +15,15 @@ from .convert import tag_flac, wav_to_flac
 from .musicbrainz import get_release_tracks, search_releases
 from .state import AlbumState, AlbumStatus, StateManager, TrackInfo
 from .visualise import visualise_splits
+
+
+def sanitize_filename(name: str) -> str:
+    """Remove or replace characters that are illegal in filenames."""
+    # Replace characters illegal on common filesystems: / \ : * ? " < > |
+    sanitized = re.sub(r'[\\/:*?"<>|]', "", name)
+    # Collapse runs of whitespace and strip leading/trailing whitespace
+    sanitized = re.sub(r"\s+", " ", sanitized).strip()
+    return sanitized
 
 
 def parse_folder_name(folder_name: str) -> tuple[str, str]:
@@ -243,7 +253,7 @@ def _stage_split(
     if files_match_tracks:
         # Just rename in place — files already correspond 1:1
         for seg in segments:
-            track_name = seg.track_name or f"Track {seg.track_number}"
+            track_name = sanitize_filename(seg.track_name or f"Track {seg.track_number}")
             new_name = f"{seg.track_number:0{pad}d} - {track_name}.wav"
             new_path = album_dir / new_name
             if seg.source_file != new_path:
@@ -259,7 +269,7 @@ def _stage_split(
         ) as progress:
             task = progress.add_task("Splitting audio...", total=len(segments))
             for seg in segments:
-                track_name = seg.track_name or f"Track {seg.track_number}"
+                track_name = sanitize_filename(seg.track_name or f"Track {seg.track_number}")
                 new_name = f"{seg.track_number:0{pad}d} - {track_name}.wav"
                 output_path = album_dir / new_name
                 split_wav(seg.source_file, output_path, seg.start_sec, seg.end_sec)
@@ -299,9 +309,10 @@ def _stage_convert(
 
         pad = len(str(total_tracks))
         for track in album_state.tracks:
-            wav_name = track.file or f"{track.number:0{pad}d} - {track.name}.wav"
+            safe_name = sanitize_filename(track.name)
+            wav_name = track.file or f"{track.number:0{pad}d} - {safe_name}.wav"
             wav_path = album_dir / wav_name
-            flac_name = f"{track.number:0{pad}d} - {track.name}.flac"
+            flac_name = f"{track.number:0{pad}d} - {safe_name}.flac"
             flac_path = album_dir / flac_name
 
             if flac_path.exists():
