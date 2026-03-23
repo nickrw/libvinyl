@@ -82,7 +82,7 @@ def read_wav_mono_rms(path: Path, window_sec: float = 0.1) -> tuple[np.ndarray, 
                 arr = np.array(samples, dtype=np.float64)
                 max_val = 8388608.0
                 if n_channels > 1:
-                    arr = arr.reshape(-1, n_channels).mean(axis=1)
+                    arr = arr.reshape(-1, n_channels)[:, :2].mean(axis=1)
                 rms = np.sqrt(np.mean((arr / max_val) ** 2))
                 rms_values.append(rms)
                 continue
@@ -96,7 +96,7 @@ def read_wav_mono_rms(path: Path, window_sec: float = 0.1) -> tuple[np.ndarray, 
                 samples_data = struct.unpack(fmt, raw)
                 arr = np.array(samples_data, dtype=np.float64)
                 if n_channels > 1:
-                    arr = arr.reshape(-1, n_channels).mean(axis=1)
+                    arr = arr.reshape(-1, n_channels)[:, :2].mean(axis=1)
                 rms = np.sqrt(np.mean((arr / max_val) ** 2))
                 rms_values.append(rms)
 
