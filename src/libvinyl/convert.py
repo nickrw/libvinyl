@@ -17,10 +17,12 @@ def wav_to_flac(
 
     If hi_res is False, downsample to 44.1kHz/16-bit (CD quality).
     """
-    cmd = ["ffmpeg", "-y", "-i", str(wav_path)]
+    # Prefix paths with file: so ffmpeg doesn't interpret colons in
+    # filenames (e.g. "Mars: the Bringer of War") as protocol separators.
+    cmd = ["ffmpeg", "-y", "-i", f"file:{wav_path}"]
     if not hi_res:
         cmd.extend(["-ar", "44100", "-sample_fmt", "s16"])
-    cmd.extend(["-c:a", "flac", str(flac_path)])
+    cmd.extend(["-c:a", "flac", f"file:{flac_path}"])
     subprocess.run(cmd, check=True, capture_output=True)
 
 

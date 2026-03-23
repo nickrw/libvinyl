@@ -19,8 +19,8 @@ from .visualise import visualise_splits
 
 def sanitize_filename(name: str) -> str:
     """Remove or replace characters that are illegal in filenames."""
-    # Replace characters illegal on common filesystems: / \ : * ? " < > |
-    sanitized = re.sub(r'[\\/:*?"<>|]', "", name)
+    # Replace characters illegal on common filesystems: / \ * ? " < > |
+    sanitized = re.sub(r'[\\/*?"<>|]', "", name)
     # Collapse runs of whitespace and strip leading/trailing whitespace
     sanitized = re.sub(r"\s+", " ", sanitized).strip()
     return sanitized
